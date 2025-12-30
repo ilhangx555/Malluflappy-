@@ -1,0 +1,248 @@
+<!DOCTYPE html>  <html lang="en">  
+<head>  
+<meta charset="UTF-8">  
+<title>Flappy Game</title>  
+<meta name="viewport" content="width=device-width, initial-scale=1.0">  <style>  
+body {  
+  margin: 0;  
+  font-family: Arial, sans-serif;  
+  background: #000;  
+  color:#fff;  
+}  
+  
+/* SPLASH */  
+#splash{  
+  position:fixed;  
+  inset:0;  
+  background:#000;  
+  display:flex;  
+  justify-content:center;  
+  align-items:center;  
+  z-index:10;  
+}  
+#splash img{  
+  width:260px; /* BIG LOGO */  
+}  
+  
+/* THEMES */  
+#themes{  
+  display:none;  
+  padding:20px;  
+  height:100vh;  
+  overflow-y:auto;  
+  -webkit-overflow-scrolling:touch; /* smooth mobile scroll */  
+}  
+.theme-grid{  
+  display:grid;  
+  grid-template-columns:repeat(2,1fr);  
+  gap:15px;  
+}  
+.theme-card{  
+  background:#111;  
+  border-radius:14px;  
+  padding:15px;  
+  text-align:center;  
+  border:2px solid #333;  
+  cursor:pointer;  
+}  
+.theme-card img{  
+  width:70px;  
+}  
+  
+/* ABOUT */  
+#about{  
+  margin-top:20px;  
+  text-align:center;  
+  background:#111;  
+  padding:15px;  
+  border-radius:12px;  
+}  
+.rgb{  
+  font-weight:bold;  
+  animation:rgb 2s linear infinite;  
+}  
+@keyframes rgb{  
+  0%{color:red}  
+  33%{color:lime}  
+  66%{color:cyan}  
+  100%{color:red}  
+}  
+a{color:#0ff;text-decoration:none}  
+  
+/* GAME */  
+#game{display:none;}  
+canvas{display:block;}  
+  
+/* GAME OVER */  
+#gameOver{  
+  display:none;  
+  position:fixed;  
+  inset:0;  
+  background:rgba(0,0,0,.8);  
+  display:flex;  
+  flex-direction:column;  
+  justify-content:center;  
+  align-items:center;  
+  gap:15px;  
+}  
+button{  
+  padding:12px 25px;  
+  font-size:16px;  
+  border:none;  
+  border-radius:8px;  
+  background:#ff9800;  
+}  
+button:active{transform:scale(.95);}  
+</style>  </head>  <body>  <!-- SPLASH -->  <div id="splash">  
+  <img src="logo.png">  
+</div>  <!-- THEMES -->  <div id="themes">  
+  <h2>Select Theme</h2>    <div class="theme-grid">  
+    <div class="theme-card" onclick="startGame(1)"><img src="bird1.png"><br>Theme 1</div>  
+    <div class="theme-card" onclick="startGame(2)"><img src="bird2.png"><br>Theme 2</div>  
+    <div class="theme-card" onclick="startGame(3)"><img src="bird3.png"><br>Theme 3</div>  
+    <div class="theme-card" onclick="startGame(4)"><img src="bird4.png"><br>Theme 4</div>  
+  </div>    <!-- ABOUT -->    <div id="about">  
+    <p>Instagram: <span class="rgb">@ilhan.pk</span></p>  
+    <p>Email: ilhangx555@gmail.com</p>  
+  </div>  
+</div>  <!-- GAME -->  <div id="game">  
+  <canvas id="c"></canvas>  
+</div>  <!-- GAME OVER -->  <div id="gameOver">  
+  <h2>Game Over</h2>  
+  <button onclick="replay()">Replay</button>  
+  <button onclick="exitGame()">Exit</button>  
+</div>  <script>  
+/* SPLASH */  
+setTimeout(()=>{  
+  splash.style.display="none";  
+  themes.style.display="block";  
+},4000);  
+  
+/* CANVAS */  
+const canvas=document.getElementById("c");  
+const ctx=canvas.getContext("2d");  
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}  
+resize();window.onresize=resize;  
+  
+/* VARS */  
+let birdY,birdV,birdImg=new Image();  
+let pipeImg=new Image();  
+let pipes=[],score=0;  
+let best=localStorage.getItem("best")||0;  
+let bgColor="#000";  
+let jumpSound,hitSound;  
+let gameRunning=false;  
+  
+const speed=2;  
+const gravity=0.30;  
+const gap=240;  
+const PIPE_WIDTH=70, PIPE_HEIGHT=400;  
+  
+/* AUTO THEME */  
+let savedTheme=localStorage.getItem("theme");  
+if(savedTheme){themes.style.display="none";game.style.display="block";startGame(savedTheme);}  
+  
+/* START */  
+function startGame(t){  
+  isGameOver = false;  
+gameRunning = true;  
+  localStorage.setItem("theme",t);  
+  themes.style.display="none";  
+  game.style.display="block";  
+  gameOver.style.display="none";  
+  
+  const theme={  
+    1:{bg:"#70c5ce",bird:"bird1.png",pipe:"pipe1.png",jump:"jump1.mp3",hit:"hit1.mp3"},  
+    2:{bg:"#111",bird:"bird2.png",pipe:"pipe2.png",jump:"jump2.mp3",hit:"hit2.mp3"},  
+    3:{bg:"#002",bird:"bird3.png",pipe:"pipe3.png",jump:"jump1.mp3",hit:"hit1.mp3"},  
+    4:{bg:"#330",bird:"bird4.png",pipe:"pipe4.png",jump:"jump2.mp3",hit:"hit2.mp3"}  
+  }[t];  
+  
+  bgColor=theme.bg;  
+  birdImg.src=theme.bird;  
+  pipeImg.src=theme.pipe;  
+  jumpSound=new Audio(theme.jump);  
+  hitSound=new Audio(theme.hit);  
+  
+  birdY=canvas.height/2;  
+  birdV=0;  
+  pipes=[];  
+  score=0;  
+  gameRunning=true;  
+  loop();  
+}  
+  
+/* CONTROLS */  
+document.addEventListener("click",jump);  
+document.addEventListener("touchstart",jump);  
+function jump(){  
+  if(!gameRunning)return;  
+  birdV=-5; // SMALL JUMP  
+  jumpSound.play();  
+}  
+  
+/* LOOP */  
+function loop(){  
+  if(!gameRunning)return;  
+  ctx.fillStyle=bgColor;  
+  ctx.fillRect(0,0,canvas.width,canvas.height);  
+  
+  birdV+=gravity;  
+  birdY+=birdV;  
+  ctx.drawImage(birdImg,80,birdY,40,30);  
+  
+  if(pipes.length==0||pipes[pipes.length-1].x<canvas.width-240){  
+    pipes.push({x:canvas.width,y:Math.random()*250+150,passed:false});  
+  }  
+  
+  for(let p of pipes){  
+    p.x-=speed;  
+  
+    ctx.save();  
+    ctx.translate(p.x+PIPE_WIDTH/2,p.y-gap/2);  
+    ctx.scale(1,-1);  
+    ctx.drawImage(pipeImg,-PIPE_WIDTH/2,0,PIPE_WIDTH,PIPE_HEIGHT);  
+    ctx.restore();  
+  
+    ctx.drawImage(pipeImg,p.x,p.y+gap/2,PIPE_WIDTH,PIPE_HEIGHT);  
+  
+    if(!p.passed&&p.x+PIPE_WIDTH<80){score++;p.passed=true;}  
+    if(80<p.x+PIPE_WIDTH&&120>p.x&&(birdY<p.y-gap/2||birdY+30>p.y+gap/2)){endGame();return;}  
+  }  
+  
+  if(birdY>canvas.height){endGame();return;}  
+  
+  ctx.fillStyle="#fff";  
+  ctx.font="20px Arial";  
+  ctx.fillText("Score: "+score,20,30);  
+  ctx.fillText("Best: "+best,20,55);  
+  
+  requestAnimationFrame(loop);  
+}  
+  
+/* END */  
+function endGame() {  
+  gameRunning = false;  
+  hitSound.play();  
+    
+  if (score > best) {  
+    best = score;  
+    localStorage.setItem("best", best);  
+  }  
+    
+  gameOver.style.display = "flex";  
+}  
+  
+/* ================= BUTTONS ================= */  
+function replay() {  
+  gameOver.style.display = "none";  
+  startGame(localStorage.getItem("theme"));  
+}  
+function exitGame() {  
+  gameRunning = false;  
+  game.style.display = "none";  
+  gameOver.style.display = "none";  
+  themes.style.display = "block";  
+}  
+</script>  </body>  
+</html>  
